@@ -1,8 +1,9 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useParams } from 'react-router-dom';
-import { FaMicrophone, FaPaperPlane, FaSmile, FaCrown, FaRobot } from 'react-icons/fa';
+import { FaMicrophone, FaPaperPlane, FaSmile, FaCrown, FaRobot, FaPlay, FaTerminal } from 'react-icons/fa';
 import { motion, AnimatePresence } from 'framer-motion';
 import { io } from 'socket.io-client';
+import Editor from '@monaco-editor/react';
 import ReactMarkdown from 'react-markdown';
 import { Prism as SyntaxHighlighter } from 'react-syntax-highlighter';
 import { vscDarkPlus } from 'react-syntax-highlighter/dist/esm/styles/prism';
@@ -20,8 +21,11 @@ const ChamberRoom = () => {
     const [isOracleTyping, setIsOracleTyping] = useState(false);
     const [code, setCode] = useState('// Your shared code will appear here...');
     const [language, setLanguage] = useState('javascript');
+    const [output, setOutput] = useState('');
+    const [isRunning, setIsRunning] = useState(false);
 
     const socketRef = useRef();
+    const editorRef = useRef();
     const messagesEndRef = useRef(null);
 
     useEffect(() => {
@@ -36,11 +40,6 @@ const ChamberRoom = () => {
 
         socketRef.current.on('oracle-typing', (isTyping) => {
             setIsOracleTyping(isTyping);
-        });
-
-        socketRef.current.on('code-sync', (data) => {
-            setCode(data.code);
-            setLanguage(data.language);
         });
 
         return () => {
@@ -71,6 +70,44 @@ const ChamberRoom = () => {
             code: newCode,
             language
         });
+    };
+
+    const handleEditorDidMount = (editor) => {
+        editorRef.current = editor;
+        socketRef.current.on('code-sync', (data) => {
+            const currentPosition = editor.getPosition();
+            editor.setValue(data.code);
+            editor.setPosition(currentPosition);
+            setLanguage(data.language);
+        });
+    };
+
+    const handleRunCode = () => {
+        setIsRunning(true);
+        setOutput('');
+
+        const originalLog = console.log;
+        const originalError = console.error;
+        let logs = [];
+
+        console.log = (...args) => {
+            logs.push(args.map(arg => typeof arg === 'object' ? JSON.stringify(arg) : arg).join(' '));
+        };
+        console.error = (...args) => {
+            logs.push(`Error: ${args.join(' ')}`);
+        };
+
+        try {
+            // eslint-disable-next-line no-eval
+            eval(code);
+            setOutput(logs.join('\n') || 'Program executed successfully (no output).');
+        } catch (err) {
+            setOutput(`Execution Error: ${err.message}`);
+        } finally {
+            console.log = originalLog;
+            console.error = originalError;
+            setIsRunning(false);
+        }
     };
 
     const members = [
@@ -171,6 +208,43 @@ const ChamberRoom = () => {
                     </button>
                 </form>
             </main>
+
+            {/* Middle: Shared Code Editor */}
+            <section className={styles.editorPanel}>
+                <div className={styles.editorTabs}>
+                    <div className={styles.tab}>shared_code.{language === 'javascript' ? 'js' : 'txt'}</div>
+                    <button className={styles.runBtn} onClick={handleRunCode} disabled={isRunning}>
+                        <FaPlay /> {isRunning ? 'Running...' : 'Run Code'}
+                    </button>
+                </div>
+                <div className={styles.editorContainer}>
+                    <Editor
+                        height="100%"
+                        language={language}
+                        theme="vs-dark"
+                        value={code}
+                        onChange={handleCodeChange}
+                        onMount={handleEditorDidMount}
+                        options={{
+                            fontSize: 14,
+                            minimap: { enabled: false },
+                            scrollBeyondLastLine: false,
+                            automaticLayout: true,
+                            fontFamily: 'JetBrains Mono, monospace',
+                            padding: { top: 16 }
+                        }}
+                    />
+                </div>
+                {output && (
+                    <div className={styles.terminal}>
+                        <div className={styles.terminalHeader}>
+                            <FaTerminal size={12} /> TERMINAL
+                            <button className={styles.clearBtn} onClick={() => setOutput('')}>Clear</button>
+                        </div>
+                        <pre className={styles.terminalOutput}>{output}</pre>
+                    </div>
+                )}
+            </section>
 
             {/* Right: Oracle Panel */}
             <aside className={styles.toolsPanel}>

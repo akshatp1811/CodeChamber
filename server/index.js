@@ -32,10 +32,16 @@ io.on('connection', (socket) => {
         if (!roomContext[roomId]) {
             roomContext[roomId] = {
                 messages: [],
-                code: '',
+                files: [
+                    { id: '1', name: 'main.js', type: 'file', content: '// Welcome to the Chamber\nconsole.log("Hello Chamber!");', parentId: null }
+                ],
+                activeFileId: '1',
                 language: 'javascript'
             };
         }
+
+        // Send current state to joining user
+        socket.emit('room-ready', roomContext[roomId]);
     });
 
     socket.on('send-message', async (data) => {
@@ -60,7 +66,8 @@ io.on('connection', (socket) => {
         if (message.startsWith('@AI')) {
             const question = message.replace('@AI', '').trim();
             const contextString = roomContext[roomId].messages.join('\n');
-            const currentCode = roomContext[roomId].code || '';
+            const activeFile = roomContext[roomId].files.find(f => f.id === roomContext[roomId].activeFileId);
+            const currentCode = activeFile?.content || '';
             const language = roomContext[roomId].language || 'javascript';
 
             // Show typing indicator
@@ -78,14 +85,46 @@ io.on('connection', (socket) => {
         }
     });
 
-    socket.on('code-update', (data) => {
-        const { roomId, code, language } = data;
+    socket.on('file-update', (data) => {
+        const { roomId, fileId, content } = data;
         if (roomContext[roomId]) {
-            roomContext[roomId].code = code;
-            roomContext[roomId].language = language;
+            roomContext[roomId].files = roomContext[roomId].files.map(f => 
+                f.id === fileId ? { ...f, content } : f
+            );
+            socket.to(roomId).emit('file-sync', { fileId, content });
         }
-        // Broadcast code change to others
-        socket.to(roomId).emit('code-sync', { code, language });
+    });
+
+    socket.on('file-create', (data) => {
+        const { roomId, file } = data;
+        if (roomContext[roomId]) {
+            roomContext[roomId].files.push(file);
+            socket.to(roomId).emit('file-created', file);
+        }
+    });
+
+    socket.on('file-delete', (data) => {
+        const { roomId, fileId } = data;
+        if (roomContext[roomId]) {
+            roomContext[roomId].files = roomContext[roomId].files.filter(f => f.id !== fileId && f.parentId !== fileId);
+            socket.to(roomId).emit('file-deleted', fileId);
+        }
+    });
+
+    socket.on('folder-create', (data) => {
+        const { roomId, folder } = data;
+        if (roomContext[roomId]) {
+            roomContext[roomId].files.push(folder);
+            socket.to(roomId).emit('folder-created', folder);
+        }
+    });
+
+    socket.on('active-file-change', (data) => {
+        const { roomId, fileId } = data;
+        if (roomContext[roomId]) {
+            roomContext[roomId].activeFileId = fileId;
+            socket.to(roomId).emit('active-file-synced', fileId);
+        }
     });
 
     socket.on('ai-generate', async (data) => {

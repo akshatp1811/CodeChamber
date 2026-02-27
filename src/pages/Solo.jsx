@@ -1,17 +1,26 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { FaHatWizard, FaPlay, FaRegCopy, FaCheck, FaMagic } from 'react-icons/fa';
+import { FaHatWizard, FaPlay, FaRegCopy, FaCheck, FaMagic, FaTerminal, FaFileCode, FaFolder, FaPlus, FaTrash, FaFolderPlus, FaChevronRight, FaChevronDown } from 'react-icons/fa';
 import { motion } from 'framer-motion';
 import { io } from 'socket.io-client';
+import Editor from '@monaco-editor/react';
 import { pageTransitionVariants, staggerContainer, staggerItem } from '../utils/animations';
 import styles from './Solo.module.css';
 
 const Solo = () => {
-    const [code, setCode] = useState('function calculateFibonacci(n) {\n  if (n <= 1) return n;\n  return calculateFibonacci(n - 1) + calculateFibonacci(n - 2);\n}');
+    const [files, setFiles] = useState([
+        { id: '1', name: 'fibonacci.js', type: 'file', content: 'function calculateFibonacci(n) {\n  if (n <= 1) return n;\n  return calculateFibonacci(n - 1) + calculateFibonacci(n - 2);\n}', parentId: null },
+        { id: '2', name: 'utils', type: 'folder', parentId: null },
+        { id: '3', name: 'constants.js', type: 'file', content: 'export const PI = 3.14159;', parentId: '2' }
+    ]);
+    const [activeFileId, setActiveFileId] = useState('1');
+    const [expandedFolders, setExpandedFolders] = useState(['2']);
     const [isAsking, setIsAsking] = useState(false);
     const [oracleResponse, setOracleResponse] = useState(null);
     const [copied, setCopied] = useState(false);
     const [language, setLanguage] = useState('javascript');
     const [isGenerating, setIsGenerating] = useState(false);
+    const [output, setOutput] = useState('');
+    const [isRunning, setIsRunning] = useState(false);
 
     const socketRef = useRef();
     const editorRef = useRef();
@@ -24,7 +33,7 @@ const Solo = () => {
         });
 
         socketRef.current.on('ai-generated-code', (data) => {
-            setCode(data.code);
+            setFiles(prev => prev.map(f => f.id === activeFileId ? { ...f, content: data.code } : f));
             // Simulate oracle feedback for the generated code
             setOracleResponse({
                 issue: 'Code Generated Successfully',
@@ -43,46 +52,94 @@ const Solo = () => {
 
         // Simulate a "thinking" phase before sending to backend for analysis
         // In a full implementation, we'd have a specific socket event for analysis
+        const activeFile = files.find(f => f.id === activeFileId);
         setTimeout(() => {
-            // Re-using the generateCodeOnly for simple logic or we could add an analyze event
             socketRef.current.emit('ai-generate', {
                 roomId: 'SOLO_' + Date.now(),
                 instruction: 'Review this code for performance and provide an optimized version.',
-                code,
+                code: activeFile?.content || '',
                 language
             });
             setIsAsking(false);
         }, 1000);
     };
 
-    const handleGenerate = (e) => {
-        if (e.key === 'Enter' && code.includes('/generate')) {
-            const lines = code.split('\n');
-            const lastLine = lines[lines.length - 1];
-            if (lastLine.startsWith('/generate')) {
-                const instruction = lastLine.replace('/generate', '').trim();
-                const codeContext = lines.slice(0, -1).join('\n');
+    const handleEditorDidMount = (editor) => {
+        editorRef.current = editor;
 
-                socketRef.current.emit('ai-generate', {
-                    roomId: 'SOLO_GEN',
-                    instruction,
-                    code: codeContext,
-                    language
-                });
+        // Custom key listener for /generate
+        editor.onKeyDown((e) => {
+            if (e.keyCode === 3 /* Enter */) {
+                const model = editor.getModel();
+                const position = editor.getPosition();
+                const lineContent = model.getLineContent(position.lineNumber);
 
-                // Remove the /generate line immediately
-                setCode(codeContext);
+                if (lineContent.startsWith('/generate')) {
+                    const instruction = lineContent.replace('/generate', '').trim();
+                    const fullCode = model.getValue();
+                    const lines = fullCode.split('\n');
+                    const codeContext = lines.filter((_, i) => i !== position.lineNumber - 1).join('\n');
+
+                    socketRef.current.emit('ai-generate', {
+                        roomId: 'SOLO_GEN',
+                        instruction,
+                        code: codeContext,
+                        language
+                    });
+
+                    // Remove the /generate line
+                    editor.executeEdits('magic-ai', [{
+                        range: {
+                            startLineNumber: position.lineNumber,
+                            startColumn: 1,
+                            endLineNumber: position.lineNumber,
+                            endColumn: lineContent.length + 1
+                        },
+                        text: ''
+                    }]);
+                }
             }
+        });
+    };
+
+    const handleRunCode = () => {
+        setIsRunning(true);
+        setOutput('');
+
+        const originalLog = console.log;
+        const originalError = console.error;
+        let logs = [];
+
+        console.log = (...args) => {
+            logs.push(args.map(arg => typeof arg === 'object' ? JSON.stringify(arg) : arg).join(' '));
+        };
+        console.error = (...args) => {
+            logs.push(`Error: ${args.join(' ')}`);
+        };
+
+        try {
+            // eslint-disable-next-line no-eval
+            eval(activeFile?.content || '');
+            setOutput(logs.join('\n') || 'Program executed successfully (no output).');
+        } catch (err) {
+            setOutput(`Execution Error: ${err.message}`);
+        } finally {
+            console.log = originalLog;
+            console.error = originalError;
+            setIsRunning(false);
         }
     };
 
     const handleImproveCode = () => {
-        const selection = window.getSelection().toString();
-        if (selection) {
+        const selection = editorRef.current.getSelection();
+        const model = editorRef.current.getModel();
+        const selectedText = model.getValueInRange(selection);
+
+        if (selectedText) {
             socketRef.current.emit('ai-generate', {
                 roomId: 'SOLO_IMPROVE',
                 instruction: 'Improve this specific code snippet for readability and performance.',
-                code: selection,
+                code: selectedText,
                 language
             });
         } else {
@@ -110,45 +167,75 @@ const Solo = () => {
                     <button className={styles.improveBtn} onClick={handleImproveCode} disabled={isGenerating}>
                         <FaMagic /> Improve Code
                     </button>
-                    <button className={styles.runBtn}><FaPlay /> Run Code</button>
+                    <button className={styles.runBtn} onClick={handleRunCode} disabled={isRunning}>
+                        <FaPlay /> {isRunning ? 'Running...' : 'Run Code'}
+                    </button>
                 </div>
             </header>
 
             <div className={styles.workspace}>
-                {/* Left: File Explorer Placeholder */}
+                {/* Left: File Explorer */}
                 <aside className={styles.filePanel}>
-                    <div className={styles.panelHeader}>EXPLORER</div>
-                    <ul className={styles.fileList}>
-                        <li className={styles.activeFile}>fibonacci.js</li>
-                        <li>utils.js</li>
-                        <li>constants.js</li>
-                    </ul>
+                    <div className={styles.panelHeader}>
+                        <span>EXPLORER</span>
+                        <div className={styles.explorerActions}>
+                            <button onClick={() => handleFileCreate()} title="New File"><FaPlus size={12} /></button>
+                            <button onClick={() => handleFolderCreate()} title="New Folder"><FaFolderPlus size={12} /></button>
+                        </div>
+                    </div>
+                    <div className={styles.fileTree}>
+                        {files.filter(f => !f.parentId).map(file => (
+                            <FileItem
+                                key={file.id}
+                                item={file}
+                                files={files}
+                                activeId={activeFileId}
+                                expanded={expandedFolders}
+                                onSelect={setActiveFileId}
+                                onToggle={toggleFolder}
+                                onDelete={handleFileDelete}
+                                onCreateFile={handleFileCreate}
+                                onCreateFolder={handleFolderCreate}
+                            />
+                        ))}
+                    </div>
                 </aside>
 
-                {/* Center: Editor Placeholder */}
+                {/* Center: Editor */}
                 <main className={styles.editorPanel}>
                     <div className={styles.editorTabs}>
-                        <div className={styles.tab}>fibonacci.js</div>
+                        <div className={styles.tab}>{activeFile?.name || 'No file selected'}</div>
                     </div>
-                    <div className={styles.editorWrapper}>
-                        {isGenerating && (
-                            <div className={styles.editorOverlay}>
-                                <div className={styles.loadingPulse}></div>
-                                <span>The Oracle is weaving code...</span>
-                            </div>
-                        )}
-                        <textarea
-                            ref={editorRef}
-                            className={styles.editor}
-                            value={code}
-                            onChange={(e) => setCode(e.target.value)}
-                            onKeyDown={handleGenerate}
-                            spellCheck="false"
+                    <div className={styles.editorContainer}>
+                        <Editor
+                            height="100%"
+                            language={language}
+                            theme="vs-dark"
+                            value={activeFile?.content || ''}
+                            onChange={(value) => {
+                                setFiles(prev => prev.map(f => f.id === activeFileId ? { ...f, content: value } : f));
+                            }}
+                            onMount={handleEditorDidMount}
+                            options={{
+                                fontSize: 14,
+                                minimap: { enabled: false },
+                                scrollBeyondLastLine: false,
+                                automaticLayout: true,
+                                fontFamily: 'JetBrains Mono, monospace',
+                                padding: { top: 16 }
+                            }}
                         />
                     </div>
+                    {output && (
+                        <div className={styles.terminal}>
+                            <div className={styles.terminalHeader}>
+                                <FaTerminal size={12} /> TERMINAL
+                                <button className={styles.clearBtn} onClick={() => setOutput('')}>Clear</button>
+                            </div>
+                            <pre className={styles.terminalOutput}>{output}</pre>
+                        </div>
+                    )}
                 </main>
-
-                {/* Right: AI Oracle Panel */}
                 <aside className={styles.oraclePanel}>
                     <div className={styles.oracleHeader}>
                         <FaHatWizard size={20} color="var(--color-primary-gold)" />
@@ -231,8 +318,52 @@ const Solo = () => {
                         </motion.button>
                     </div>
                 </aside>
+            </div >
+        </motion.div >
+    );
+};
+
+const FileItem = ({ item, files, activeId, expanded, onSelect, onToggle, onDelete, onCreateFile, onCreateFolder }) => {
+    const isFolder = item.type === 'folder';
+    const isExpanded = expanded.includes(item.id);
+    const children = files.filter(f => f.parentId === item.id);
+
+    return (
+        <div className={styles.treeItemWrapper}>
+            <div
+                className={`${styles.treeItem} ${activeId === item.id ? styles.activeTreeItem : ''}`}
+                onClick={() => isFolder ? onToggle(item.id) : onSelect(item.id)}
+            >
+                <div className={styles.itemMain}>
+                    {isFolder ? (isExpanded ? <FaChevronDown size={10} /> : <FaChevronRight size={10} />) : <FaFileCode size={14} />}
+                    {isFolder && <FaFolder size={14} color="var(--color-primary-gold)" />}
+                    <span className={styles.itemName}>{item.name}</span>
+                </div>
+                <div className={styles.itemActions}>
+                    {isFolder && <FaPlus size={10} onClick={(e) => { e.stopPropagation(); onCreateFile(item.id); }} title="New File" />}
+                    {isFolder && <FaFolderPlus size={10} onClick={(e) => { e.stopPropagation(); onCreateFolder(item.id); }} title="New Folder" />}
+                    <FaTrash size={10} className={styles.deleteIcon} onClick={(e) => onDelete(item.id, e)} title="Delete" />
+                </div>
             </div>
-        </motion.div>
+            {isFolder && isExpanded && (
+                <div className={styles.treeChildren}>
+                    {children.map(child => (
+                        <FileItem
+                            key={child.id}
+                            item={child}
+                            files={files}
+                            activeId={activeId}
+                            expanded={expanded}
+                            onSelect={onSelect}
+                            onToggle={onToggle}
+                            onDelete={onDelete}
+                            onCreateFile={onCreateFile}
+                            onCreateFolder={onCreateFolder}
+                        />
+                    ))}
+                </div>
+            )}
+        </div>
     );
 };
 
