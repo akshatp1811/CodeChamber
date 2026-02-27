@@ -46,7 +46,7 @@
 
 .heroLogo {
     display: block;
-    width: clamp(180px, 15vw, 220px);
+    width: clamp(140px, 12vw, 180px);
     height: auto;
     filter: drop-shadow(0 0 25px rgba(212, 175, 55, 0.6)) drop-shadow(0 0 45px rgba(246, 211, 101, 0.4));
     background: radial-gradient(circle at center,
