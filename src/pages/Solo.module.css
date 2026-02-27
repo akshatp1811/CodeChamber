@@ -46,6 +46,25 @@
     overflow: hidden;
 }
 
+.improveBtn {
+    background: rgba(212, 175, 55, 0.1);
+    color: var(--color-primary-gold);
+    border: 1px solid var(--color-primary-gold);
+    padding: 0.4rem 1rem;
+    border-radius: 4px;
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    font-size: 0.9rem;
+    transition: all 0.3s ease;
+}
+
+.improveBtn:hover:not(:disabled) {
+    background: var(--color-primary-gold);
+    color: var(--color-bg);
+    box-shadow: 0 0 15px rgba(212, 175, 55, 0.3);
+}
+
 /* File Explorer */
 .filePanel {
     width: 250px;
@@ -110,6 +129,13 @@
     border-top: 2px solid var(--color-primary-gold);
 }
 
+.editorWrapper {
+    flex: 1;
+    position: relative;
+    display: flex;
+    flex-direction: column;
+}
+
 .editor {
     flex: 1;
     background: transparent;
@@ -121,6 +147,53 @@
     resize: none;
     outline: none;
     line-height: 1.6;
+    z-index: 1;
+}
+
+.editorOverlay {
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: rgba(11, 11, 15, 0.8);
+    backdrop-filter: blur(4px);
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    z-index: 10;
+    color: var(--color-primary-gold);
+    gap: 1rem;
+}
+
+.loadingPulse {
+    width: 60px;
+    height: 2px;
+    background: var(--color-primary-gold);
+    position: relative;
+    overflow: hidden;
+}
+
+.loadingPulse::after {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: -100%;
+    width: 100%;
+    height: 100%;
+    background: linear-gradient(90deg, transparent, #fff, transparent);
+    animation: pulseScan 1.5s infinite;
+}
+
+@keyframes pulseScan {
+    0% {
+        left: -100%;
+    }
+
+    100% {
+        left: 100%;
+    }
 }
 
 /* Oracle Panel */
@@ -159,6 +232,19 @@
     color: var(--color-text-muted);
     font-style: italic;
     padding-top: 2rem;
+}
+
+.hintText {
+    margin-top: 1rem;
+    font-size: 0.8rem;
+    opacity: 0.7;
+}
+
+.hintText code {
+    background: rgba(255, 255, 255, 0.05);
+    padding: 0.1rem 0.3rem;
+    border-radius: 3px;
+    color: var(--color-primary-gold);
 }
 
 .oracleLoading {
