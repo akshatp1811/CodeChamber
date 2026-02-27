@@ -1,0 +1,109 @@
+/* Shared styles for both Chamber Create and Room */
+
+.createContainer {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    min-height: 70vh;
+    padding: 2rem;
+}
+
+.createCard {
+    width: 100%;
+    max-width: 500px;
+    text-align: center;
+    padding: 3rem 2rem;
+}
+
+.iconHeader {
+    margin-bottom: 1.5rem;
+    filter: drop-shadow(0 0 10px rgba(212, 175, 55, 0.4));
+}
+
+.createCard h2 {
+    font-size: 1.8rem;
+    margin-bottom: 0.5rem;
+}
+
+.createCard p {
+    color: var(--color-text-muted);
+    margin-bottom: 2rem;
+}
+
+.createForm {
+    text-align: left;
+}
+
+.inputGroup {
+    margin-bottom: 1.5rem;
+}
+
+.inputGroup label {
+    display: block;
+    margin-bottom: 0.5rem;
+    color: var(--color-text-soft);
+    font-size: 0.9rem;
+    letter-spacing: 1px;
+}
+
+.inputGroup input {
+    width: 100%;
+    padding: 0.8rem 1rem;
+    background: rgba(0, 0, 0, 0.3);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    border-radius: 4px;
+    color: #fff;
+    font-family: var(--font-body);
+    transition: all var(--transition-normal);
+}
+
+.inputGroup input:focus {
+    outline: none;
+    border-color: var(--color-primary-gold);
+    box-shadow: 0 0 5px rgba(212, 175, 55, 0.3);
+}
+
+.visibilityToggle {
+    display: flex;
+    gap: 1rem;
+    margin-bottom: 2rem;
+}
+
+.toggleOption {
+    flex: 1;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.5rem;
+    padding: 0.8rem;
+    background: rgba(0, 0, 0, 0.3);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    border-radius: 4px;
+    cursor: pointer;
+    color: var(--color-text-muted);
+    transition: all var(--transition-normal);
+}
+
+.activeOption {
+    background: rgba(212, 175, 55, 0.1);
+    border-color: var(--color-primary-gold);
+    color: var(--color-primary-gold);
+}
+
+.submitBtn {
+    width: 100%;
+    padding: 1rem;
+    background: var(--color-primary-gold);
+    color: var(--color-bg);
+    font-family: var(--font-heading);
+    font-weight: 700;
+    font-size: 1.1rem;
+    border-radius: 4px;
+    text-transform: none;
+    letter-spacing: 2px;
+}
+
+.submitBtn:hover {
+    box-shadow: var(--shadow-gold-glow);
+    transform: translateY(-2px);
+}

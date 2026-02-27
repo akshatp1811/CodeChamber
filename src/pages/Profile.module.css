@@ -1,0 +1,185 @@
+.profileContainer {
+    padding: 3rem 2rem;
+    max-width: 1000px;
+    margin: 0 auto;
+}
+
+.profileHeader {
+    display: flex;
+    align-items: center;
+    gap: 3rem;
+    margin-bottom: 3rem;
+    padding: 3rem !important;
+    background: radial-gradient(circle at 0% 50%, rgba(212, 175, 55, 0.05) 0%, var(--color-surface) 50%);
+}
+
+.avatarHuge {
+    width: 150px;
+    height: 150px;
+    border-radius: 50%;
+    background: var(--color-bg);
+    border: 4px solid var(--color-primary-gold);
+    box-shadow: 0 0 30px rgba(246, 211, 101, 0.3);
+    flex-shrink: 0;
+}
+
+.userInfo {
+    flex: 1;
+}
+
+.userInfo h2 {
+    font-size: 2.5rem;
+    margin-bottom: 0.5rem;
+    color: var(--color-text-soft);
+}
+
+.rankBadge {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.5rem;
+    padding: 0.4rem 1rem;
+    background: rgba(212, 175, 55, 0.1);
+    border: 1px solid var(--color-primary-gold);
+    border-radius: 20px;
+    color: var(--color-primary-gold);
+    font-family: var(--font-heading);
+    font-weight: 700;
+    margin-bottom: 0.5rem;
+}
+
+.joinDate {
+    color: var(--color-text-muted);
+    font-size: 0.9rem;
+}
+
+.xpWidget {
+    flex: 1;
+    min-width: 250px;
+}
+
+.xpText {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-end;
+    margin-bottom: 0.8rem;
+}
+
+.currentXp {
+    font-size: 1.5rem;
+    font-weight: 700;
+    color: var(--color-accent-gold-glow);
+    font-family: var(--font-code);
+}
+
+.nextXp {
+    color: var(--color-text-muted);
+    font-size: 0.85rem;
+}
+
+.progressBar {
+    height: 12px;
+    background: rgba(0, 0, 0, 0.4);
+    border-radius: 6px;
+    overflow: hidden;
+    border: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.progressFill {
+    height: 100%;
+    background: linear-gradient(90deg, var(--color-primary-gold), var(--color-accent-gold-glow));
+    box-shadow: var(--shadow-gold-glow);
+    border-radius: 6px;
+}
+
+.statsGrid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+    gap: 2rem;
+    margin-bottom: 4rem;
+}
+
+.statCard {
+    text-align: center;
+    padding: 2rem !important;
+}
+
+.statIcon {
+    font-size: 2.5rem;
+    color: var(--color-primary-gold);
+    margin-bottom: 1rem;
+    filter: drop-shadow(0 0 5px rgba(212, 175, 55, 0.3));
+}
+
+.statCard h3 {
+    font-size: 2.5rem;
+    margin-bottom: 0.5rem;
+    font-family: var(--font-code);
+}
+
+.statCard p {
+    color: var(--color-text-muted);
+    text-transform: none;
+    font-size: 0.85rem;
+    letter-spacing: 1px;
+}
+
+.sectionHeader {
+    margin-bottom: 2rem;
+}
+
+.sectionHeader h3 {
+    font-size: 1.8rem;
+    margin-bottom: 0.5rem;
+}
+
+.divider {
+    height: 2px;
+    width: 60px;
+    background: var(--color-primary-gold);
+}
+
+.badgesGrid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+    gap: 1.5rem;
+}
+
+.badgeCard {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    text-align: center;
+    background: linear-gradient(180deg, var(--color-surface) 0%, rgba(212, 175, 55, 0.02) 100%);
+}
+
+.badgeIcon {
+    width: 70px;
+    height: 70px;
+    border-radius: 50%;
+    background: rgba(212, 175, 55, 0.1);
+    border: 2px solid var(--color-primary-gold);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    margin-bottom: 1rem;
+    box-shadow: inset 0 0 10px rgba(212, 175, 55, 0.2), 0 0 15px rgba(212, 175, 55, 0.1);
+}
+
+.badgeCard h4 {
+    color: var(--color-text-soft);
+    margin-bottom: 0.5rem;
+    font-size: 1.1rem;
+}
+
+.badgeCard p {
+    color: var(--color-text-muted);
+    font-size: 0.85rem;
+    line-height: 1.4;
+}
+
+@media (max-width: 800px) {
+    .profileHeader {
+        flex-direction: column;
+        text-align: center;
+    }
+}
