@@ -40,6 +40,16 @@
     border: 3px solid var(--color-primary-gold);
     margin: 0 auto 1rem;
     box-shadow: var(--shadow-gold-glow);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    overflow: hidden;
+}
+
+.avatarLarge img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
 }
 
 .rankTitle {
