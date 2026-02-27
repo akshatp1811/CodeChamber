@@ -5,22 +5,27 @@ dotenv.config();
 
 const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY || "YOUR_API_KEY");
 
-export const generateAIResponse = async (context, question, code, language) => {
+export const generateAIResponse = async (context, question, code, language, chatHistory = []) => {
     try {
         const model = genAI.getGenerativeModel({ model: "gemini-2.5-flash" });
+
+        const historyContext = chatHistory.map(m => `${m.sender === 'user' ? 'User' : 'The Oracle'}: ${m.text}`).join('\n');
 
         const prompt = `
         You are an advanced AI coding assistant named "The Oracle" integrated into a collaborative coding environment called "CodeChamber".
         
-        Context (recent chat):
+        Main Room Context (recent chat):
         ${context}
+
+        Oracle Direct Conversation History:
+        ${historyContext}
 
         Current Code (${language}):
         \`\`\`${language}
         ${code}
         \`\`\`
 
-        User Question: ${question}
+        New User Question: ${question}
 
         Requirements:
         1. Format your response cleanly using Markdown.
@@ -29,6 +34,7 @@ export const generateAIResponse = async (context, question, code, language) => {
         4. If the user asks to debug, explain the cause of the error clearly.
         5. If the user asks to improve code, provide the optimized version.
         6. Keep the tone helpful, professional, and slightly mystical (fitting "The Oracle" persona).
+        7. If this is a follow-up question, use the context from the conversation history.
         `;
 
         const result = await model.generateContent(prompt);

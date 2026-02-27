@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { FaHatWizard, FaPlay, FaRegCopy, FaCheck, FaMagic, FaTerminal, FaFileCode, FaFolder, FaPlus, FaTrash, FaFolderPlus, FaChevronRight, FaChevronDown } from 'react-icons/fa';
+import { FaHatWizard, FaPlay, FaRegCopy, FaCheck, FaMagic, FaTerminal, FaFileCode, FaFolder, FaPlus, FaTrash, FaFolderPlus, FaChevronRight, FaChevronDown, FaPaperPlane } from 'react-icons/fa';
 import { motion } from 'framer-motion';
 import { io } from 'socket.io-client';
 import Editor from '@monaco-editor/react';
@@ -21,9 +21,12 @@ const Solo = () => {
     const [isGenerating, setIsGenerating] = useState(false);
     const [output, setOutput] = useState('');
     const [isRunning, setIsRunning] = useState(false);
+    const [oracleMessages, setOracleMessages] = useState([]);
+    const [oracleInput, setOracleInput] = useState('');
 
     const socketRef = useRef();
     const editorRef = useRef();
+    const oracleChatEndRef = useRef();
 
     useEffect(() => {
         socketRef.current = io('http://localhost:5000');
@@ -34,34 +37,84 @@ const Solo = () => {
 
         socketRef.current.on('ai-generated-code', (data) => {
             setFiles(prev => prev.map(f => f.id === activeFileId ? { ...f, content: data.code } : f));
-            // Simulate oracle feedback for the generated code
-            setOracleResponse({
-                issue: 'Code Generated Successfully',
-                why: 'The Oracle has manifested the logic you requested.',
-                fix: data.code,
-                optimization: 'Review the generated logic for edge cases.'
-            });
+            setOracleMessages(prev => [...prev, { sender: 'oracle', text: "Behold, I have manifested the logic you requested.", type: 'code', code: data.code }]);
+        });
+
+        socketRef.current.on('oracle-chat-response', (data) => {
+            setOracleMessages(prev => [...prev, { sender: 'oracle', text: data.text }]);
         });
 
         return () => socketRef.current.disconnect();
-    }, []);
+    }, [activeFileId]);
 
-    const handleAskOracle = () => {
-        setIsAsking(true);
-        setOracleResponse(null);
+    useEffect(() => {
+        oracleChatEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+    }, [oracleMessages]);
 
-        // Simulate a "thinking" phase before sending to backend for analysis
-        // In a full implementation, we'd have a specific socket event for analysis
-        const activeFile = files.find(f => f.id === activeFileId);
-        setTimeout(() => {
-            socketRef.current.emit('ai-generate', {
-                roomId: 'SOLO_' + Date.now(),
-                instruction: 'Review this code for performance and provide an optimized version.',
-                code: activeFile?.content || '',
-                language
-            });
-            setIsAsking(false);
-        }, 1000);
+    const handleAskOracle = async (e) => {
+        if (e) e.preventDefault();
+        const question = oracleInput.trim();
+        if (!question && !oracleResponse) return;
+
+        const finalQuestion = question || "Review this code for performance and provide an optimized version.";
+
+        const newUserMsg = { sender: 'user', text: finalQuestion };
+        setOracleMessages(prev => [...prev, newUserMsg]);
+        setOracleInput('');
+
+        socketRef.current.emit('oracle-chat-query', {
+            roomId: 'SOLO_CHAT',
+            question: finalQuestion,
+            code: activeFile?.content || '',
+            language,
+            chatHistory: oracleMessages
+        });
+    };
+
+    const handleFileUpdate = (newContent) => {
+        setFiles(prev => prev.map(f => f.id === activeFileId ? { ...f, content: newContent } : f));
+    };
+
+    const handleFileCreate = (parentId = null) => {
+        const name = prompt('Enter file name:');
+        if (name) {
+            const newFile = {
+                id: Date.now().toString(),
+                name,
+                type: 'file',
+                content: '// New file...',
+                parentId
+            };
+            setFiles(prev => [...prev, newFile]);
+            setActiveFileId(newFile.id);
+        }
+    };
+
+    const handleFolderCreate = (parentId = null) => {
+        const name = prompt('Enter folder name:');
+        if (name) {
+            const newFolder = {
+                id: Date.now().toString(),
+                name,
+                type: 'folder',
+                parentId
+            };
+            setFiles(prev => [...prev, newFolder]);
+        }
+    };
+
+    const handleFileDelete = (fileId, e) => {
+        e.stopPropagation();
+        if (window.confirm('Are you sure you want to delete this?')) {
+            setFiles(prev => prev.filter(f => f.id !== fileId && f.parentId !== fileId));
+            if (activeFileId === fileId) setActiveFileId(null);
+        }
+    };
+
+    const toggleFolder = (folderId) => {
+        setExpandedFolders(prev =>
+            prev.includes(folderId) ? prev.filter(fid => fid !== folderId) : [...prev, folderId]
+        );
     };
 
     const handleEditorDidMount = (editor) => {
@@ -153,6 +206,8 @@ const Solo = () => {
         setTimeout(() => setCopied(false), 2000);
     };
 
+    const activeFile = files.find(f => f.id === activeFileId);
+
     return (
         <motion.div
             className={styles.soloContainer}
@@ -212,9 +267,7 @@ const Solo = () => {
                             language={language}
                             theme="vs-dark"
                             value={activeFile?.content || ''}
-                            onChange={(value) => {
-                                setFiles(prev => prev.map(f => f.id === activeFileId ? { ...f, content: value } : f));
-                            }}
+                            onChange={handleFileUpdate}
                             onMount={handleEditorDidMount}
                             options={{
                                 fontSize: 14,
@@ -239,84 +292,51 @@ const Solo = () => {
                 <aside className={styles.oraclePanel}>
                     <div className={styles.oracleHeader}>
                         <FaHatWizard size={20} color="var(--color-primary-gold)" />
-                        <h3>The Oracle</h3>
+                        <h3>The Oracle's Sanctum</h3>
                     </div>
 
-                    <div className={styles.oracleContent}>
-                        {!oracleResponse && !isAsking && !isGenerating && (
-                            <motion.div
-                                className={styles.oracleEmptyState}
-                                initial={{ opacity: 0 }}
-                                animate={{ opacity: 1 }}
-                            >
-                                <p>The Oracle slumbers. Write your code and seek its wisdom when you require guidance.</p>
-                                <p className={styles.hintText}>Try typing <code>/generate &lt;prompt&gt;</code> or select code and click Improve.</p>
-                            </motion.div>
-                        )}
-
-                        {(isAsking || isGenerating) && (
-                            <motion.div
-                                className={styles.oracleLoading}
-                                initial={{ opacity: 0 }}
-                                animate={{ opacity: 1 }}
-                            >
-                                <motion.div
-                                    className={styles.spinner}
-                                    animate={{ rotate: 360 }}
-                                    transition={{ duration: 1, repeat: Infinity, ease: "linear" }}
-                                ></motion.div>
-                                <p>The Oracle is examining your logic...</p>
-                            </motion.div>
-                        )}
-
-                        {oracleResponse && (
-                            <motion.div
-                                className={styles.oracleResponseCard}
-                                variants={staggerContainer}
-                                initial="hidden"
-                                animate="show"
-                            >
-                                <motion.div variants={staggerItem} className={styles.responseSection}>
-                                    <h4>🔍 Analysis</h4>
-                                    <p className={styles.issueText}>{oracleResponse.issue}</p>
-                                </motion.div>
-
-                                <motion.div variants={staggerItem} className={styles.responseSection}>
-                                    <h4>⚠ Context</h4>
-                                    <p>{oracleResponse.why}</p>
-                                </motion.div>
-
-                                <motion.div variants={staggerItem} className={styles.responseSection}>
-                                    <div className={styles.fixHeader}>
-                                        <h4>🛠 Manifestation</h4>
-                                        <button className={styles.copyBtn} onClick={copyFix} title="Copy Fix">
-                                            {copied ? <FaCheck color="var(--color-primary-gold)" /> : <FaRegCopy />}
-                                        </button>
+                    <div className={styles.oracleChatArea}>
+                        {oracleMessages.length === 0 ? (
+                            <div className={styles.oracleEmptyState}>
+                                <p>The Oracle slumbers. Speak to the void, and it may answer.</p>
+                                <p className={styles.hintText}>Try <code>/generate &lt;prompt&gt;</code> in editor or chat below.</p>
+                            </div>
+                        ) : (
+                            <div className={styles.oracleMessages}>
+                                {oracleMessages.map((msg, idx) => (
+                                    <div key={idx} className={`${styles.oracleMsg} ${msg.sender === 'user' ? styles.userMsg : styles.oracleMsgBubble}`}>
+                                        <div className={styles.msgText}>{msg.text}</div>
+                                        {msg.type === 'code' && (
+                                            <pre className={styles.oracleCodeBox}>
+                                                <code>{msg.code}</code>
+                                            </pre>
+                                        )}
                                     </div>
-                                    <pre className={styles.codeBlock}>
-                                        <code>{oracleResponse.fix}</code>
-                                    </pre>
-                                </motion.div>
-
-                                <motion.div variants={staggerItem} className={styles.responseSection}>
-                                    <h4>✨ Wisdom</h4>
-                                    <p className={styles.tipText}>{oracleResponse.optimization}</p>
-                                </motion.div>
-                            </motion.div>
+                                ))}
+                                <div ref={oracleChatEndRef} />
+                            </div>
+                        )}
+                        {isGenerating && (
+                            <div className={styles.oracleTyping}>
+                                <div className={styles.dot}></div>
+                                <div className={styles.dot}></div>
+                                <div className={styles.dot}></div>
+                            </div>
                         )}
                     </div>
 
-                    <div className={styles.oracleFooter}>
-                        <motion.button
-                            className={`${styles.askBtn} glow-hover`}
-                            onClick={handleAskOracle}
-                            disabled={isAsking || isGenerating}
-                            whileHover={!(isAsking || isGenerating) ? { scale: 1.05, boxShadow: '0 0 15px rgba(212, 175, 55, 0.4)' } : {}}
-                            whileTap={!(isAsking || isGenerating) ? { scale: 0.95 } : {}}
-                        >
-                            Ask Oracle
-                        </motion.button>
-                    </div>
+                    <form className={styles.oracleInputForm} onSubmit={handleAskOracle}>
+                        <input
+                            type="text"
+                            placeholder="Consult the Oracle..."
+                            value={oracleInput}
+                            onChange={(e) => setOracleInput(e.target.value)}
+                            disabled={isGenerating}
+                        />
+                        <button type="submit" disabled={isGenerating || !oracleInput.trim()}>
+                            <FaPaperPlane />
+                        </button>
+                    </form>
                 </aside>
             </div >
         </motion.div >

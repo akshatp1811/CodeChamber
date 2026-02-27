@@ -36,7 +36,8 @@ io.on('connection', (socket) => {
                     { id: '1', name: 'main.js', type: 'file', content: '// Welcome to the Chamber\nconsole.log("Hello Chamber!");', parentId: null }
                 ],
                 activeFileId: '1',
-                language: 'javascript'
+                language: 'javascript',
+                oracleChat: []
             };
         }
 
@@ -135,6 +136,17 @@ io.on('connection', (socket) => {
         socket.emit('ai-generating', false);
 
         socket.emit('ai-generated-code', { code: generatedCode });
+    });
+
+    socket.on('oracle-chat-query', async (data) => {
+        const { roomId, question, code, language, chatHistory } = data;
+        const mainContext = roomContext[roomId]?.messages.join('\n') || '';
+        
+        socket.emit('oracle-typing', true);
+        const aiResponse = await generateAIResponse(mainContext, question, code, language, chatHistory);
+        socket.emit('oracle-typing', false);
+
+        socket.emit('oracle-chat-response', { text: aiResponse });
     });
 
     socket.on('disconnect', () => {
