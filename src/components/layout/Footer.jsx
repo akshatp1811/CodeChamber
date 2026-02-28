@@ -1,10 +1,14 @@
 import React from 'react';
 import { FaGithub } from 'react-icons/fa';
+import goldenHorizon from '../../assets/golden-horizon.png';
 import styles from './Footer.module.css';
 
 const Footer = () => {
     return (
         <footer className={styles.footer}>
+            <div className={styles.imageOverlay}>
+                <img src={goldenHorizon} alt="Golden Horizon" className={styles.horizonImage} />
+            </div>
             <div className={styles.container}>
                 <div className={styles.section}>
                     <h3>About CodeChamber</h3>
