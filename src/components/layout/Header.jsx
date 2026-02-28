@@ -37,6 +37,7 @@ const Header = () => {
                 {user && (
                     <>
                         <NavLink to="/dashboard" className={({ isActive }) => isActive ? styles.active : ''}>Dashboard</NavLink>
+                        <NavLink to="/community" className={({ isActive }) => isActive ? styles.active : ''}>Community</NavLink>
                         {isGamified && <NavLink to="/leaderboard" className={({ isActive }) => isActive ? styles.active : ''}>Leaderboard</NavLink>}
                         <NavLink to="/profile" className={({ isActive }) => isActive ? styles.active : ''}>Profile</NavLink>
                     </>
@@ -55,9 +56,9 @@ const Header = () => {
                     <>
                         <div className={styles.avatar} title={user.name}>
                             {user.photoURL ? (
-                                <img src={user.photoURL} alt={user.name} className={styles.avatarImg} style={{ width: '24px', height: '24px', borderRadius: '50%' }} />
+                                <img src={user.photoURL} alt={user.name} className={styles.avatarImg} style={{ width: '36px', height: '36px', borderRadius: '50%', border: '1px solid #D4AF37' }} />
                             ) : (
-                                <FaUserCircle size={24} color="var(--color-primary-gold)" />
+                                <FaUserCircle style={{ width: '36px', height: '36px', borderRadius: '50%', color: 'var(--color-primary-gold)', border: '1px solid #D4AF37' }} />
                             )}
                         </div>
                         <button className={styles.logoutBtn} onClick={handleLogout} title="Logout">

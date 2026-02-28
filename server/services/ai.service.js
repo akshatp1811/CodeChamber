@@ -7,7 +7,7 @@ const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY || "YOUR_API_KEY
 
 export const generateAIResponse = async (context, question, code, language, chatHistory = []) => {
     try {
-        const model = genAI.getGenerativeModel({ model: "gemini-2.5-flash" });
+        const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash" });
 
         const historyContext = chatHistory.map(m => `${m.sender === 'user' ? 'User' : 'The Oracle'}: ${m.text}`).join('\n');
 
@@ -41,14 +41,14 @@ export const generateAIResponse = async (context, question, code, language, chat
         const response = await result.response;
         return response.text();
     } catch (error) {
-        console.error("AI Service Error:", error.message || error);
-        return "I apologize, but my mystic energies are currently disrupted. Please try again shortly.";
+        console.error("AI Service Error:", error);
+        return "I apologize, but my mystic energies are currently disrupted. Please check my API Key connection.";
     }
 };
 
 export const generateCodeOnly = async (instruction, code, language) => {
     try {
-        const model = genAI.getGenerativeModel({ model: "gemini-2.5-flash" });
+        const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash" });
 
         const prompt = `
         You are an AI code generator. 
@@ -69,10 +69,10 @@ export const generateCodeOnly = async (instruction, code, language) => {
         const result = await model.generateContent(prompt);
         const response = await result.response;
         let text = response.text();
-        
+
         // Clean up markdown code blocks if the AI accidentally included them
         text = text.replace(/```[\s\S]*?\n/g, '').replace(/```/g, '').trim();
-        
+
         return text;
     } catch (error) {
         console.error("AI Code Gen Error:", error);

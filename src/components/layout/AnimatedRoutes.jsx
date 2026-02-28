@@ -10,6 +10,8 @@ import ChamberCreate from '../../pages/ChamberCreate';
 import ChamberRoom from '../../pages/ChamberRoom';
 import Leaderboard from '../../pages/Leaderboard';
 import Profile from '../../pages/Profile';
+import Community from '../../pages/Community';
+import PostDetail from '../../pages/PostDetail';
 
 const ProtectedRoute = ({ children }) => {
     const { user, loading } = useAuth();
@@ -33,6 +35,10 @@ const AnimatedRoutes = () => {
                 <Route path="chamber">
                     <Route path="create" element={<ProtectedRoute><ChamberCreate /></ProtectedRoute>} />
                     <Route path=":id" element={<ProtectedRoute><ChamberRoom /></ProtectedRoute>} />
+                </Route>
+                <Route path="community">
+                    <Route index element={<ProtectedRoute><Community /></ProtectedRoute>} />
+                    <Route path="post/:postId" element={<ProtectedRoute><PostDetail /></ProtectedRoute>} />
                 </Route>
                 <Route path="leaderboard" element={<ProtectedRoute><Leaderboard /></ProtectedRoute>} />
                 <Route path="profile" element={<ProtectedRoute><Profile /></ProtectedRoute>} />

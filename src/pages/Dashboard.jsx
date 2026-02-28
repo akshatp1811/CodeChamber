@@ -2,20 +2,28 @@ import React from 'react';
 import { useNavigate } from 'react-router-dom';
 import { FaLaptopCode, FaUsers, FaMedal, FaStar } from 'react-icons/fa';
 import { useGameMode } from '../context/GameModeContext';
+import { useAuth } from '../context/AuthContext';
 import { motion } from 'framer-motion';
 import { pageTransitionVariants, staggerContainer, staggerItem } from '../utils/animations';
+import CreateChamberModal from '../components/chamber/CreateChamberModal';
+import JoinChamberModal from '../components/chamber/JoinChamberModal';
 import styles from './Dashboard.module.css';
 
 const Dashboard = () => {
     const navigate = useNavigate();
     const { isGamified, toggleGamified } = useGameMode();
+    const { user } = useAuth();
+    const [isCreateModalOpen, setIsCreateModalOpen] = React.useState(false);
+    const [isJoinModalOpen, setIsJoinModalOpen] = React.useState(false);
 
-    const mockUser = {
-        name: 'Archmage',
-        rank: 'Strategist',
-        xp: 2450,
+    // Default values if they are undefined or still loading via auth context.
+    const displayUser = {
+        name: user?.name || 'Tactician',
+        rank: user?.rank || 'Novice',
+        xp: user?.xp || 0,
         nextRankXp: 5000,
-        badges: ['First Blood', 'Oracle Adept']
+        badges: user?.badges || [],
+        photoURL: user?.photoURL || null
     };
 
     const mockLeaderboard = [
@@ -54,25 +62,44 @@ const Dashboard = () => {
                 {/* Left Sidebar: Profile Preview */}
                 <motion.aside variants={staggerItem} className={`${styles.sidebar} card`}>
                     <div className={styles.profileHeader}>
-                        <motion.div
-                            className={styles.avatarLarge}
-                            whileHover={{ scale: 1.05, boxShadow: '0 0 15px rgba(212, 175, 55, 0.4)' }}
-                        ></motion.div>
-                        <h3>{mockUser.name}</h3>
-                        {isGamified && <p className={styles.rankTitle}>{mockUser.rank}</p>}
+                        {displayUser.photoURL ? (
+                            <motion.img
+                                src={displayUser.photoURL}
+                                alt={displayUser.name}
+                                className={styles.avatarLarge}
+                                initial={{ opacity: 0 }}
+                                animate={{ opacity: 1 }}
+                                transition={{ duration: 0.5 }}
+                                whileHover={{ scale: 1.05, boxShadow: '0 0 15px rgba(212, 175, 55, 0.4)' }}
+                                style={{ width: '90px', height: '90px', borderRadius: '50%', objectFit: 'cover', border: '2px solid #D4AF37' }}
+                            />
+                        ) : (
+                            <motion.div
+                                className={styles.avatarLarge}
+                                initial={{ opacity: 0 }}
+                                animate={{ opacity: 1 }}
+                                transition={{ duration: 0.5 }}
+                                whileHover={{ scale: 1.05, boxShadow: '0 0 15px rgba(212, 175, 55, 0.4)' }}
+                                style={{ width: '90px', height: '90px', borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', border: '2px solid #D4AF37' }}
+                            >
+                                <FaUserCircle size={90} color="var(--color-primary-gold)" />
+                            </motion.div>
+                        )}
+                        <h3>{displayUser.name}</h3>
+                        {isGamified && <p className={styles.rankTitle}>{displayUser.rank}</p>}
                     </div>
 
                     {isGamified && (
                         <div className={styles.gamificationSection}>
                             <div className={styles.xpInfo}>
-                                <span>XP: {mockUser.xp}</span>
-                                <span>Next: {mockUser.nextRankXp}</span>
+                                <span>XP: {displayUser.xp}</span>
+                                <span>Next: {displayUser.nextRankXp}</span>
                             </div>
                             <div className={styles.xpBarContainer}>
                                 <motion.div
                                     className={styles.xpBarFill}
                                     initial={{ width: 0 }}
-                                    animate={{ width: `${(mockUser.xp / mockUser.nextRankXp) * 100}%` }}
+                                    animate={{ width: `${(displayUser.xp / displayUser.nextRankXp) * 100}%` }}
                                     transition={{ duration: 1, ease: 'easeOut' }}
                                 ></motion.div>
                             </div>
@@ -80,7 +107,7 @@ const Dashboard = () => {
                             <div className={styles.badgesWrapper}>
                                 <h4>Badges</h4>
                                 <div className={styles.badgesList}>
-                                    {mockUser.badges.map((badge, idx) => (
+                                    {displayUser.badges.map((badge, idx) => (
                                         <motion.div
                                             key={idx}
                                             className={styles.badge}
@@ -120,10 +147,10 @@ const Dashboard = () => {
                         <h3>Co-op Chamber</h3>
                         <p>Create or join a real-time collaborative development room.</p>
                         <div className={styles.btnGroup}>
-                            <button className={styles.primaryBtn} onClick={() => navigate('/chamber/create')}>
+                            <button className={styles.primaryBtn} onClick={() => setIsCreateModalOpen(true)}>
                                 Create Chamber
                             </button>
-                            <button className={styles.secondaryBtn}>
+                            <button className={styles.secondaryBtn} onClick={() => setIsJoinModalOpen(true)}>
                                 Join Chamber
                             </button>
                         </div>
@@ -152,6 +179,16 @@ const Dashboard = () => {
                     </motion.aside>
                 )}
             </motion.div>
+
+            <CreateChamberModal
+                isOpen={isCreateModalOpen}
+                onClose={() => setIsCreateModalOpen(false)}
+            />
+
+            <JoinChamberModal
+                isOpen={isJoinModalOpen}
+                onClose={() => setIsJoinModalOpen(false)}
+            />
         </motion.div>
     );
 };

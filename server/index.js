@@ -28,7 +28,7 @@ io.on('connection', (socket) => {
     socket.on('join-room', (roomId) => {
         socket.join(roomId);
         console.log(`User ${socket.id} joined room: ${roomId}`);
-        
+
         if (!roomContext[roomId]) {
             roomContext[roomId] = {
                 messages: [],
@@ -47,26 +47,28 @@ io.on('connection', (socket) => {
 
     socket.on('send-message', async (data) => {
         const { roomId, message, user } = data;
-        
-        // Add to room context (keep last 20)
-        if (!roomContext[roomId]) roomContext[roomId] = { messages: [] };
-        roomContext[roomId].messages.push(`${user}: ${message}`);
-        if (roomContext[roomId].messages.length > 20) {
-            roomContext[roomId].messages.shift();
-        }
 
-        // Broadcast message to everyone in room
-        io.to(roomId).emit('receive-message', {
+        const msgObj = {
             id: Date.now(),
             user,
             text: message,
             isOracle: false
-        });
+        };
+
+        // Add to room context
+        if (!roomContext[roomId]) roomContext[roomId] = { messages: [] };
+        roomContext[roomId].messages.push(msgObj);
+        if (roomContext[roomId].messages.length > 50) {
+            roomContext[roomId].messages.shift();
+        }
+
+        // Broadcast message to everyone in room
+        io.to(roomId).emit('receive-message', msgObj);
 
         // Trigger AI if it starts with @AI
         if (message.startsWith('@AI')) {
             const question = message.replace('@AI', '').trim();
-            const contextString = roomContext[roomId].messages.join('\n');
+            const contextString = roomContext[roomId].messages.map(m => `${m.user}: ${m.text}`).join('\n');
             const activeFile = roomContext[roomId].files.find(f => f.id === roomContext[roomId].activeFileId);
             const currentCode = activeFile?.content || '';
             const language = roomContext[roomId].language || 'javascript';
@@ -76,20 +78,23 @@ io.on('connection', (socket) => {
 
             const aiResponse = await generateAIResponse(contextString, question, currentCode, language);
 
-            io.to(roomId).emit('oracle-typing', false);
-            io.to(roomId).emit('receive-message', {
+            const oracleMsgObj = {
                 id: Date.now() + 1,
                 user: 'Oracle',
                 text: aiResponse,
                 isOracle: true
-            });
+            };
+            roomContext[roomId].messages.push(oracleMsgObj);
+
+            io.to(roomId).emit('oracle-typing', false);
+            io.to(roomId).emit('receive-message', oracleMsgObj);
         }
     });
 
     socket.on('file-update', (data) => {
         const { roomId, fileId, content } = data;
         if (roomContext[roomId]) {
-            roomContext[roomId].files = roomContext[roomId].files.map(f => 
+            roomContext[roomId].files = roomContext[roomId].files.map(f =>
                 f.id === fileId ? { ...f, content } : f
             );
             socket.to(roomId).emit('file-sync', { fileId, content });
@@ -130,7 +135,7 @@ io.on('connection', (socket) => {
 
     socket.on('ai-generate', async (data) => {
         const { roomId, instruction, code, language } = data;
-        
+
         socket.emit('ai-generating', true);
         const generatedCode = await generateCodeOnly(instruction, code, language);
         socket.emit('ai-generating', false);
@@ -140,8 +145,8 @@ io.on('connection', (socket) => {
 
     socket.on('oracle-chat-query', async (data) => {
         const { roomId, question, code, language, chatHistory } = data;
-        const mainContext = roomContext[roomId]?.messages.join('\n') || '';
-        
+        const mainContext = roomContext[roomId]?.messages.map(m => `${m.user}: ${m.text}`).join('\n') || '';
+
         socket.emit('oracle-typing', true);
         const aiResponse = await generateAIResponse(mainContext, question, code, language, chatHistory);
         socket.emit('oracle-typing', false);

@@ -8,11 +8,19 @@ import ReactMarkdown from 'react-markdown';
 import { Prism as SyntaxHighlighter } from 'react-syntax-highlighter';
 import { vscDarkPlus } from 'react-syntax-highlighter/dist/esm/styles/prism';
 import remarkGfm from 'remark-gfm';
+import { useAuth } from '../context/AuthContext';
+import { db } from '../config/firebase';
+import { doc, onSnapshot, updateDoc, arrayUnion, getDoc } from 'firebase/firestore';
 import { pageTransitionVariants } from '../utils/animations';
 import styles from './ChamberRoom.module.css';
 
 const ChamberRoom = () => {
     const { id } = useParams();
+    const { user } = useAuth();
+
+    // Realtime member tracking state
+    const [roomMembers, setRoomMembers] = useState([]);
+
     const [message, setMessage] = useState('');
     const [messages, setMessages] = useState([
         { id: 1, user: 'System', text: 'Welcome to the Chamber. Connecting to the Oracle...', isOracle: false }
@@ -46,6 +54,9 @@ const ChamberRoom = () => {
             setActiveFileId(data.activeFileId);
             setLanguage(data.language);
             if (data.oracleChat) setOracleMessages(data.oracleChat);
+            if (data.messages && data.messages.length > 0) {
+                setMessages(data.messages);
+            }
         });
 
         socketRef.current.on('file-sync', (data) => {
@@ -58,7 +69,7 @@ const ChamberRoom = () => {
 
         socketRef.current.on('file-deleted', (fileId) => {
             setFiles(prev => prev.filter(f => f.id !== fileId && f.parentId !== fileId));
-            if (activeFileId === fileId) setActiveFileId(null);
+            setActiveFileId(prevId => prevId === fileId ? null : prevId);
         });
 
         socketRef.current.on('folder-created', (folder) => {
@@ -88,7 +99,45 @@ const ChamberRoom = () => {
         return () => {
             socketRef.current.disconnect();
         };
-    }, [id, activeFileId]);
+    }, [id]);
+
+    // Firestore Integration: Realtime Members Sync
+    useEffect(() => {
+        if (!user || !id) return;
+
+        const roomRef = doc(db, 'rooms', id);
+
+        const unsubscribe = onSnapshot(roomRef, async (docSnap) => {
+            if (docSnap.exists()) {
+                const data = docSnap.data();
+
+                // Add self if not in members list
+                if (data.members && !data.members.includes(user.uid)) {
+                    try {
+                        await updateDoc(roomRef, { members: arrayUnion(user.uid) });
+                    } catch (e) {
+                        console.error('Failed to append to members list', e);
+                    }
+                }
+
+                // Fetch real user profiles for each UID in members array
+                if (data.members) {
+                    const profiles = await Promise.all(
+                        data.members.map(async (uid) => {
+                            const userDoc = await getDoc(doc(db, 'users', uid));
+                            if (userDoc.exists()) {
+                                return { uid, ...userDoc.data() };
+                            }
+                            return { uid, name: 'Unknown Tactician', rank: 'Novice' };
+                        })
+                    );
+                    setRoomMembers(profiles);
+                }
+            }
+        });
+
+        return () => unsubscribe();
+    }, [id, user]);
 
     useEffect(() => {
         messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
@@ -104,7 +153,7 @@ const ChamberRoom = () => {
             socketRef.current.emit('send-message', {
                 roomId: id || 'MAIN',
                 message,
-                user: 'You' // Hardcoded for now, should come from auth
+                user: user?.name || 'You'
             });
             setMessage('');
         }
@@ -247,13 +296,6 @@ const ChamberRoom = () => {
 
     const activeFile = files.find(f => f.id === activeFileId);
 
-    const members = [
-        { name: 'TheEmperor', rank: 'Emperor', icon: <FaCrown color="var(--color-primary-gold)" /> },
-        { name: 'Archmage', rank: 'Strategist' },
-        { name: 'You', rank: 'Novice' }
-    ];
-
-
     return (
         <motion.div
             className={styles.roomContainer}
@@ -270,11 +312,17 @@ const ChamberRoom = () => {
                         <FaCrown color="var(--color-primary-gold)" />
                     </div>
                     <ul className={styles.memberList}>
-                        {members.map((m, idx) => (
-                            <li key={idx} className={styles.memberItem}>
-                                <div className={styles.memberAvatar}>{m.icon || m.name[0]}</div>
+                        {roomMembers.map((m) => (
+                            <li key={m.uid} className={styles.memberItem}>
+                                <div className={styles.memberAvatar}>
+                                    {m.photoURL ? (
+                                        <img src={m.photoURL} alt={m.name} style={{ width: '100%', height: '100%', borderRadius: '50%', objectFit: 'cover' }} />
+                                    ) : (
+                                        m.rank === 'Emperor' ? <FaCrown color="var(--color-primary-gold)" /> : m.name[0]
+                                    )}
+                                </div>
                                 <div className={styles.memberInfo}>
-                                    <span className={styles.memberName}>{m.name}</span>
+                                    <span className={styles.memberName}>{m.uid === user?.uid ? `${m.name} (You)` : m.name}</span>
                                     <span className={styles.memberRank}>{m.rank}</span>
                                 </div>
                             </li>
