@@ -18,11 +18,12 @@
 }
 
 .logoImg {
-    height: 60px;
+    height: 100px;
     width: auto;
     object-fit: contain;
     filter: drop-shadow(0 0 10px rgba(212, 175, 55, 0.4));
-    /* Removing negative margin since the new crest doesn't have excessive padding */
+    margin-right: -1rem;
+    /* The image has a lot of transparent whitespace around it, offsetting it visually */
 }
 
 .title {
