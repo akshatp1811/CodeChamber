@@ -12,6 +12,7 @@ import { useAuth } from '../context/AuthContext';
 import { db } from '../config/firebase';
 import { doc, onSnapshot, updateDoc, arrayUnion, getDoc } from 'firebase/firestore';
 import { pageTransitionVariants } from '../utils/animations';
+import { generateAIResponse } from '../services/ai.service';
 import styles from './ChamberRoom.module.css';
 
 const ChamberRoom = () => {
@@ -250,7 +251,7 @@ const ChamberRoom = () => {
         }
     };
 
-    const handleOracleChat = (e) => {
+    const handleOracleChat = async (e) => {
         if (e) e.preventDefault();
         const question = oracleInput.trim();
         if (!question) return;
@@ -259,13 +260,26 @@ const ChamberRoom = () => {
         setOracleMessages(prev => [...prev, newUserMsg]);
         setOracleInput('');
 
-        socketRef.current.emit('oracle-chat-query', {
-            roomId: id || 'MAIN',
-            question,
-            code: activeFile?.content || '',
-            language,
-            chatHistory: oracleMessages
-        });
+        setIsOracleTyping(true);
+        // Using frontend AI service
+        try {
+            const contextMsg = messages.map(m => m.user + ": " + m.text).join('\\n');
+            const codeContext = activeFile?.content || '';
+            const responseText = await generateAIResponse(
+                contextMsg,
+                question,
+                codeContext,
+                language,
+                oracleMessages
+            );
+
+            setOracleMessages(prev => [...prev, { sender: 'oracle', text: responseText }]);
+        } catch (error) {
+            console.error(error);
+            setOracleMessages(prev => [...prev, { sender: 'oracle', text: "My mystic energies are disrupted." }]);
+        } finally {
+            setIsOracleTyping(false);
+        }
     };
 
     const startResizing = (e) => {
@@ -322,7 +336,7 @@ const ChamberRoom = () => {
                                     )}
                                 </div>
                                 <div className={styles.memberInfo}>
-                                    <span className={styles.memberName}>{m.uid === user?.uid ? `${m.name} (You)` : m.name}</span>
+                                    <span className={styles.memberName}>{m.uid === user?.uid ? `${m.name}(You)` : m.name}</span>
                                     <span className={styles.memberRank}>{m.rank}</span>
                                 </div>
                             </li>
@@ -396,7 +410,7 @@ const ChamberRoom = () => {
 
             {/* Right: Stacked Chat Boxes (50% Width) */}
             <div className={styles.rightColumn} id="chat-column">
-                <main className={styles.chatPanel} style={{ height: `${chatHeight}%` }}>
+                <main className={styles.chatPanel} style={{ height: `${chatHeight} % ` }}>
                     <div className={styles.messagesArea}>
                         <AnimatePresence>
                             {messages.map((msg) => (
@@ -460,7 +474,7 @@ const ChamberRoom = () => {
 
                 <div className={styles.verticalResizer} onMouseDown={startResizing} />
 
-                <aside className={styles.toolsPanel} style={{ height: `${100 - chatHeight}%` }}>
+                <aside className={styles.toolsPanel} style={{ height: `${100 - chatHeight} % ` }}>
                     <div className={styles.panelHeader}>
                         <h3>The Great Oracle's Sanctum</h3>
                         <FaRobot color="var(--color-primary-gold)" />

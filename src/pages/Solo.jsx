@@ -4,6 +4,7 @@ import { motion } from 'framer-motion';
 import { io } from 'socket.io-client';
 import Editor from '@monaco-editor/react';
 import { pageTransitionVariants, staggerContainer, staggerItem } from '../utils/animations';
+import { generateAIResponse, generateCodeOnly } from '../services/ai.service';
 import styles from './Solo.module.css';
 
 const Solo = () => {
@@ -62,13 +63,24 @@ const Solo = () => {
         setOracleMessages(prev => [...prev, newUserMsg]);
         setOracleInput('');
 
-        socketRef.current.emit('oracle-chat-query', {
-            roomId: 'SOLO_CHAT',
-            question: finalQuestion,
-            code: activeFile?.content || '',
-            language,
-            chatHistory: oracleMessages
-        });
+        setIsGenerating(true);
+        try {
+            const contextMsg = '';
+            const codeContext = activeFile?.content || '';
+            const responseText = await generateAIResponse(
+                contextMsg,
+                finalQuestion,
+                codeContext,
+                language,
+                oracleMessages
+            );
+            setOracleMessages(prev => [...prev, { sender: 'oracle', text: responseText }]);
+        } catch (error) {
+            console.error(error);
+            setOracleMessages(prev => [...prev, { sender: 'oracle', text: "My mystic energies are disrupted." }]);
+        } finally {
+            setIsGenerating(false);
+        }
     };
 
     const handleFileUpdate = (newContent) => {
@@ -121,7 +133,7 @@ const Solo = () => {
         editorRef.current = editor;
 
         // Custom key listener for /generate
-        editor.onKeyDown((e) => {
+        editor.onKeyDown(async (e) => {
             if (e.keyCode === 3 /* Enter */) {
                 const model = editor.getModel();
                 const position = editor.getPosition();
@@ -133,12 +145,17 @@ const Solo = () => {
                     const lines = fullCode.split('\n');
                     const codeContext = lines.filter((_, i) => i !== position.lineNumber - 1).join('\n');
 
-                    socketRef.current.emit('ai-generate', {
-                        roomId: 'SOLO_GEN',
-                        instruction,
-                        code: codeContext,
-                        language
-                    });
+                    setIsGenerating(true);
+                    try {
+                        const generatedCode = await generateCodeOnly(instruction, codeContext, language);
+
+                        setFiles(prev => prev.map(f => f.id === activeFileId ? { ...f, content: generatedCode } : f));
+                        setOracleMessages(prev => [...prev, { sender: 'oracle', text: "Behold, I have manifested the logic you requested.", type: 'code', code: generatedCode }]);
+                    } catch (err) {
+                        console.error(err);
+                    } finally {
+                        setIsGenerating(false);
+                    }
 
                     // Remove the /generate line
                     editor.executeEdits('magic-ai', [{
@@ -183,18 +200,23 @@ const Solo = () => {
         }
     };
 
-    const handleImproveCode = () => {
+    const handleImproveCode = async () => {
         const selection = editorRef.current.getSelection();
         const model = editorRef.current.getModel();
         const selectedText = model.getValueInRange(selection);
 
         if (selectedText) {
-            socketRef.current.emit('ai-generate', {
-                roomId: 'SOLO_IMPROVE',
-                instruction: 'Improve this specific code snippet for readability and performance.',
-                code: selectedText,
-                language
-            });
+            setIsGenerating(true);
+            try {
+                const generatedCode = await generateCodeOnly("Improve this specific code snippet for readability and performance.", selectedText, language);
+
+                setFiles(prev => prev.map(f => f.id === activeFileId ? { ...f, content: generatedCode } : f));
+                setOracleMessages(prev => [...prev, { sender: 'oracle', text: "Behold, I have perfected the logic you highlighted.", type: 'code', code: generatedCode }]);
+            } catch (err) {
+                console.error(err);
+            } finally {
+                setIsGenerating(false);
+            }
         } else {
             handleAskOracle();
         }
